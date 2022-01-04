@@ -2,8 +2,11 @@
 
 ## R Studio:
 - R-Studio can be started with the following: `sh minerva-rstudio-web-r4.sh `
-- R-Studio CANNOT download data because it is behind the singularity firewall. If you want to download data, such as using a BioLinks package, then please run your script via the command line and not piecemeal in R-Studio
-- If you want to download R packages that are NOT included in the 
+- In order to run packages that utilize data downloads (such as BioLinks) you need to set up a proxy to get around the singularity firewall. Run the following commands before launching R-Studio
+  - `export http_proxy=http://172.28.7.1:3128`
+  - `export https_proxy=http://172.28.7.1:3128`
+  - `export all_proxy=http://172.28.7.1:3128`
+  - `export no_proxy=localhost,*.hpc.mssm.edu,*.chimera.hpc.mssm.edu,172.28.0.0/16`
 ## Jupyter Notebooks:
 - Jupyter notebooks can be run with the following command
   - minerva-jupyter-web.sh -h 
