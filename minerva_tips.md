@@ -11,12 +11,12 @@
   - Open R-Studio via the link that the bash command outputs 
   - Select the shell terminal console WITHIN R-STUDIO
   - Do the following: 
-    `[INFO] $ export http_proxy=http://172.28.7.1:3128`
-    `[INFO] $ export https_proxy=http://172.28.7.1:3128`
-    `[INFO] $ export all_proxy=http://172.28.7.1:3128`
-    `[INFO] $ export no_proxy=localhost,*.hpc.mssm.edu,*.chimera.hpc.mssm.edu,172.28.0.0/16`
-    `[INFO] $ R`
-    `[INFO] >>> install.packages(name_of_package)`
+    - `[INFO] $ export http_proxy=http://172.28.7.1:3128`
+    - `[INFO] $ export https_proxy=http://172.28.7.1:3128`
+    - `[INFO] $ export all_proxy=http://172.28.7.1:3128`
+    - `[INFO] $ export no_proxy=localhost,*.hpc.mssm.edu,*.chimera.hpc.mssm.edu,172.28.0.0/16`
+    - `[INFO] $ R`
+    - `[INFO] >>> install.packages(name_of_package)`
 - Troubleshooting: 
   - If you try to run the job, it successfully submits to a queue, but it then dies immediately, this is likely due to your home directory not having enough space. Home directories are limited to 20 GB. 
   - Delete any large files in your home directory ***not the project directory***
