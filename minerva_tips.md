@@ -32,6 +32,8 @@
   - `-R rusage[mem=50000]`: RAM usage in megabytes
   - `-o`: output file
   - `-e`: error file
+- In order to submit a script to a queue successfully, your username must be successfully associated with a project
+  - To check which projects you're associated with run `mybalance`. Your projects will be in the second column in the form `acc_xxx`
 
 ## Random notes on issues I have encountered
 ### For the annoy installation
