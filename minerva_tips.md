@@ -1,7 +1,10 @@
 # The purpose of this to give a basic overview / introduction on the various ways to use minerva:
 
+## Bash Profile
+- To avoid having to set up your environment every time you log onto minerva, edit your bash profile to include the environment name you want (activate your conda environment), and any R-Studio params, like the proxy variables below. See the example I set up here.****
+- You can use vim to edit text documents in terminal. I suggest getting familiar with basic commands! (i.e., i = insert mode; esc = exit insert mode; :wq = write/quit; :q = quit, but only if there are no unsaved changes; :q! = quit and toss any unsaved changes)
 ## R Studio:
-- R-Studio can be started with the following: `sh minerva-rstudio-web-r4.sh `
+- R-Studio can be started with the following: `sh minerva-rstudio-web-r4.sh`
 - In order to run packages that utilize data downloads (such as BioLinks) you need to set up a proxy to get around the singularity firewall. Run the following commands before launching R-Studio
   - `export http_proxy=http://172.28.7.1:3128`
   - `export https_proxy=http://172.28.7.1:3128`
