@@ -1,0 +1,16 @@
+numpy==1.21.4
+numba==0.53.0
+tangram-sc
+pandas
+numpy
+scanpy
+matplotlib
+seaborn
+spatialde
+scanorama
+gdown
+scvi
+gseapy
+anndata
+cello
+diffxpy

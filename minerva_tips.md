@@ -1,8 +1,14 @@
-# The purpose of this to give a basic overview / introduction on the various ways to use minerva:
+# Basic Minerva Tips and Tricks
 
-## Bash Profile
+## Setting Up Your Bash Profile
 - To avoid having to set up your environment every time you log onto minerva, edit your bash profile to include the environment name you want (activate your conda environment), and any R-Studio params, like the proxy variables below. See the example I set up here.****
 - You can use vim to edit text documents in terminal. I suggest getting familiar with basic commands! (i.e., i = insert mode; esc = exit insert mode; :wq = write/quit; :q = quit, but only if there are no unsaved changes; :q! = quit and toss any unsaved changes)
+## Downloading Data
+- The easiest way to download data is either with wget (from the internet) scp (from your local computer) or gdown (from google drive). If your data is located in Box, their developer API is not the most user friendly, and generating an access token is a bit annoying given Sinai's OKTA login. 
+  - For box, the easiest thing is to download the folder locally, SCP it to minerva, and then delete the folder from your desktop so it doesnt take up a ton of space. If that doesn't work, good luck.
+
+# Analysis Methods
+
 ## R Studio:
 - R-Studio can be started with the following: `sh minerva-rstudio-web-r4.sh`
 - In order to run packages that utilize data downloads (such as BioLinks) you need to set up a proxy to get around the singularity firewall. Run the following commands before launching R-Studio
@@ -54,8 +60,8 @@
 - In order to submit a script to a queue successfully, your username must be successfully associated with a project
   - To check which projects you're associated with run `mybalance`. Your projects will be in the second column in the form `acc_xxx`
 
-## Random notes on issues I have encountered
-### For the annoy installation
+# Random notes on issues I have encountered with analyses
+# For the annoy installation
 - You cannot install annoy via pip. You must create a new conda environment and install it via conda-forge. 
   - Python just released Python 3.10. It doesnt work with most things. Stick with 3.7 - 3.9 until compatibility is fixed. 
     - `conda activate uroconda381` (this is 3.8.1 environment)
