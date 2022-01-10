@@ -76,3 +76,9 @@
   - `bsub -P acc_mnibc_bcg -q interactive -n 1 -W 2:00 -R rusage[mem=3000] -Is /bin/bash`
 - Submit python script non-interactive
   - `bsub -P acc_mnibc_bcg -n 5 -W 05:00 -R rusage[mem=50000] "python cytof_script.py" -o cytof_01092021.txt -e cytof_01092021.txt`
+- Path issues. 
+  - Especially with python, you can really mess up your path, which can cause interminal problems with imports. This is a horrible pain in the butt. 
+  - export PATH=/hpc/users/rantid01/.conda/envs/uroconda381/bin:$PATH
+
+
+/hpc/users/rantid01/.conda/envs/uroconda381/bin:/hpc/packages/minerva-centos7/singularity/3.2.1/bin:/hpc/packages/minerva-centos7/gcc/8.3.0_32b/bin:/hpc/packages/minerva-centos7/py_packages/3.7/bin:/hpc/packages/minerva-centos7/python/3.7.3/bin:/hpc/packages/minerva-centos7/unixODBC/2.3.9/bin:/hpc/users/rantid01/.conda/envs/uroconda381/bin:/hpc/packages/minerva-centos7/anaconda3/2018.12/condabin:/usr/lib64/qt-3.3/bin:/hpc/lsf/10.1/linux3.10-glibc2.17-x86_64/etc:/hpc/lsf/10.1/linux3.10-glibc2.17-x86_64/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/usr/lpp/mmfs/bin:/opt/ibutils/bin:/hpc/users/rantid01/.local/bin:/hpc/users/rantid01/bin
