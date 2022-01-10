@@ -70,3 +70,9 @@
     - `pip install -r requirements.txt` for the rest of the requirements
     - `bsub -P acc_mnibc_bcg -n 5 -W 05:00 -R rusage[mem=50000] "python spatial_script.py" -o spatial_010421.txt -e - spatial_errors_010421.txt`
 - THE PROJECT NAME IS MISSPELLED!! ITS acc_mnibc_bcg --> NOT NMIBC
+- Submit R Script
+  - `bsub -P acc_mnibc_bcg -n 5 -W 05:00 -R rusage[mem=50000] "Rscript nmibc_tumor_degs.R" -o KLRC1_analysis.txt -e KLRC1_analysis_errors.txt`
+- Submit interactive queue request
+  - `bsub -P acc_mnibc_bcg -q interactive -n 1 -W 2:00 -R rusage[mem=3000] -Is /bin/bash`
+- Submit python script non-interactive
+  - `bsub -P acc_mnibc_bcg -n 5 -W 05:00 -R rusage[mem=50000] "python cytof_script.py" -o cytof_01092021.txt -e cytof_01092021.txt`
