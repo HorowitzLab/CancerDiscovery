@@ -75,16 +75,61 @@ def _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key, condition_key):
                     ax=ax)
 
     ### This code will plot the ratio of pre:post cells per cluster
-    means = metadata.groupby('clusterID')['genotype'].mean()
+    means = metadata.groupby(cluster_key)[cluster_key].mean()
     ax.scatter(means.index, means - np.mean(metadata['genotype']) + 0.5, color='#e0d8f0', edgecolor='k', s=100)
 
     # Axis tick labels
-    ax.set_xticklabels(metadata.set_index('clusterID')['cluster'].drop_duplicates().sort_index(), rotation=90)
+    ax.set_xticklabels(metadata.set_index('cluster_key')['cluster'].drop_duplicates().sort_index(), rotation=90)
     ax.set_ylim(0,1)
 
     fig.tight_layout()
     return fig
 
+from joblib import Parallel, delayed
+
+def _simulate_pdf_calculate_likelihood(benchmarker, seed, beta):
+    '''
+    TODO ADD DOCSTRING
+    '''
+    benchmarker.set_seed(seed)
+    benchmarker.generate_ground_truth_pdf()
+    
+    benchmarker.generate_sample_labels()
+    benchmarker.calculate_MELD_likelihood(beta=beta)
+    MELD_mse = benchmarker.calculate_mse(benchmarker.expt_likelihood)
+    return MELD_mse, seed, beta, benchmarker.graph.knn
+
+def _parameter_search(adata, benchmarker):
+    '''
+    TODO ADD DOCSTRING
+    '''
+    knn_range = np.arange(1,25)
+    beta_range = np.arange(1,200)
+
+    results = []
+    
+    seed=42
+
+    with Parallel(n_jobs=36) as p:
+        for knn in knn_range:
+            # doing this outside the parallel loop because building the graph takes the longest
+            benchmarker.fit_graph(adata.X, knn=knn)
+            print(knn)
+            curr_results = p(delayed(_simulate_pdf_calculate_likelihood)(benchmarker, seed, beta) \
+                                           for seed in range(25) for beta in beta_range)
+            curr_results = pd.DataFrame(curr_results, columns = ['MSE', 'seed', 'beta', 'knn'])
+            results.append(curr_mse)
+
+    results = pd.concat(results, axis=0)
+
+    ax = scprep.plot.scatter(results_wide['beta'], results_wide['knn'], 
+                             s=50, c=results_wide['MSE'], vmax=0.006, cmap='inferno_r')
+
+    # Highlight the top performing combination with a large red dot
+    top_result = results_wide.sort_values('MSE').iloc[0]
+    ax.scatter(top_result['beta'], top_result['knn'], c='r', s=100, linewidth=1, edgecolor='k')
+
+    return top_result
 
 def run_meld_cytof(combined_adata, condition1, condition2, cluster_key, condition_key='sample_type'):
     '''
@@ -97,11 +142,12 @@ def run_meld_cytof(combined_adata, condition1, condition2, cluster_key, conditio
     logger.info('MELD: Sample Counts')
     sample_cmap = {
         condition1: '#fb6a4a',
-        condition2: '#de2d26',
-#         'chdC': '#a50f15',
-#         'tyrA': '#6baed6',
-#         'tyrB': '#3182bd',
-#         'tyrC': '#08519c'
+        condition2: '#08519c'
+    #        condition2: '#de2d26',
+    #         'chdC': '#a50f15',
+    #         'tyrA': '#6baed6',
+    #         'tyrB': '#3182bd',
+
     }
     fig, ax = plt.subplots(1)
     metadata = combined_adata.obs
@@ -114,36 +160,50 @@ def run_meld_cytof(combined_adata, condition1, condition2, cluster_key, conditio
     ax.set_xticks(np.arange(i+1))
     ax.set_xticklabels(groups)
     ax.set_ylabel('Cells Counts Per Condition')
-    
-    fig.tight_layout()
-    fig.save_fig('meld_condition_counts_{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
 
+    fig.tight_layout()
+    fig.savefig('meld_condition_counts_{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
 
     # Meld Run Phate
     logger.info('MELD: Run Phate')
-    data_pca = scprep.reduce.pca(data)
-    phate_op = phate.PHATE(n_jobs=-1)
-    data_phate = phate_op.fit_transform(data_pca)
-    fig = scprep.plot.scatter2d(data_phate, c=metadata[condition_key], cmap=sample_cmap, 
-                      legend_anchor=(1,1), figsize=(6,5),dpi=200, s=10, label_prefix='PHATE', ticks=False)
-    fig.save_fig('meld_phate_{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
+    # We are not reducing dimensions here because CYTOF is already limited
+    phate_op = phate.PHATE(knn=10, decay=10, n_jobs=-1)
+    data_phate = phate_op.fit_transform(data)
+    fig = scprep.plot.scatter2d(
+        data_phate, 
+        c=metadata[condition_key], 
+        cmap=sample_cmap, 
+        legend_anchor=(1,1), 
+        figsize=(6,5),
+        dpi=200, 
+        s=10, 
+        filename='meld_phate_{}_{}_{}.png'.format(condition_key,condition1, condition2),
+        label_prefix='PHATE', 
+        ticks=False)
     
+    benchmarker = meld.Benchmarker()
+    # 3D PHATE components are used to create the ground truth PDF
+    benchmarker.fit_phate(data);
+
     # Run Meld
     logger.info('MELD: Run MELD')
     metadata['condition'] = [1 if sl.startswith(condition2) else 0 for sl in metadata[condition_key]]
     metadata['condition_name'] = ['Pre-BCG' if g == 0 else 'Post-BCG' for g in metadata['condition']]
-    metadata['replicate'] = metadata['sample_file_id']
+    metadata['replicate'] = metadata[condition_key]
 
     # G = gt.Graph(data_pca, knn=int(top_result['knn']), use_pygsp=True)
-    # TODO: need to implement the parameter search. Using published paramters here. 
+    top_result = _parameter_search(combined_adata, benchmarker)
+    print(top_result)
     meld_op = meld.MELD(beta=67, knn=7)
-    sample_densities = meld_op.fit_transform(data_pca, sample_labels=metadata[condition_key])
+    sample_densities = meld_op.fit_transform(data, sample_labels=metadata[condition_key])
     # Normalizing across samples. 
     logger.info('MELD: Normalizing Samples')
+    # Calculate Likelihoods
     sample_likelihoods = _replicate_normalize_densities(sample_densities, metadata['replicate'])
-
-    fig, axes = plt.subplots(1,3, figsize=(13,4))
+    # Add to metadata
+    fig, axes = plt.subplots(1,2, figsize=(13,4))
     experimental_samples = [condition1, condition2]
+    metadata['chd_likelihood'] = sample_likelihoods[experimental_samples].mean(axis=1).values
 
     for i, ax in enumerate(axes):
         curr_sample = experimental_samples[i]
@@ -152,9 +212,9 @@ def run_meld_cytof(combined_adata, condition1, condition2, cluster_key, conditio
                             title=curr_sample, ticks=False, ax=ax)
 
     fig.tight_layout()
-    fig.save_fig('meld_phate_vfc__{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
+    fig.savefig('meld_phate_vfc__{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
     fig = _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key=cluster_key, condition_key=condition_key)
-    fig.save_fig('meld_jitter_vfc__{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
+    fig.savefig('meld_jitter_vfc__{}_{}_{}.png'.format(condition_key,condition1, condition2),dpi=200)
     
 if __name__ == '__main__':
     # Listing and importing the FCS files; extracting their condition as well
@@ -201,7 +261,7 @@ if __name__ == '__main__':
             temp.var_names_make_unique() 
         adata_list.append(temp)    
 
-
+    adata_list = adata_list[0:20]
     # TODO: ASK ABOUT BATCH CORRECTION!!! 
     # import scanpy as sc 
     # help(sc.pp.combat)
@@ -241,6 +301,7 @@ if __name__ == '__main__':
         recurrence_mtx_medOnly,
         join='outer'
     )
+    combined_mtx.obs['sample_type'] = combined_mtx.obs['sample_type'].replace({'I1D1':'Pre-BCG', 'at recurrence':'Recurrence', 'recurrence':'Recurrence'})
 
     # combined_mtx = AnnData.concatenate(
     #         recurrent_mtx,
@@ -275,8 +336,8 @@ if __name__ == '__main__':
     logger.info('Running Meld')
     run_meld_cytof(
         combined_adata=combined_mtx, 
-        condition1='I1D1', 
-        condition2='recurrence', 
+        condition1='Pre-BCG', 
+        condition2='Recurrence', 
         condition_key='sample_type', 
         cluster_key='PhenoGraph_clusters'
         )
