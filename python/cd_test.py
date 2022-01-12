@@ -230,4 +230,3 @@ def test_train_score_match(
 def test_eval_metric(df_all_genes):
     auc_score = tg.eval_metric(df_all_genes)[0]["auc_score"]
     assert auc_score == approx(0.750597829464878)
-
