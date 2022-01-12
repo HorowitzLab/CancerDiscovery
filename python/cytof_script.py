@@ -8,8 +8,8 @@ It follows the following order
 - Phenograph
 - Differential Expression
 TODO: Batch correction? Not sure what batches were run. 
-TODO: implement meld
 TODO: Ask Amir about any processing steps that were already done in cytobank. Not sure the quality of the data but assuming berengere already filtered and whatnot. 
+TODO: PUT ALL MELD FUNCTIONS INTO OWN PYTHON FILE
 """
 
 __author__ = "Daniel Ranti"
@@ -29,6 +29,7 @@ import logging
 
 # Third Party Imports
 from anndata import AnnData
+import anndata as ad
 import scanpy as sc
 import scanpy.external as sce
 import graphtools as gt
@@ -58,7 +59,7 @@ sc.set_figure_params(
 sc.settings.verbosity = 3
 
 # FOR LOGGING
-logger = logging.getLogger("spatial_script")
+logger = logging.getLogger("CYTOF_analysis_script")
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
@@ -68,6 +69,9 @@ logger.addHandler(ch)
 
 # making sure plots & clusters are reproducible
 np.random.seed(42)
+
+# Figure Directory
+FIGDIR = "figures/"
 
 
 def _replicate_normalize_densities(sample_densities, replicate):
@@ -89,32 +93,26 @@ def _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key, condition_key):
     # See example usage: https://scprep.readthedocs.io/en/stable/examples/jitter.html
     scprep.plot.jitter(
         metadata[cluster_key],
-        metadata["chd_likelihood"],
+        metadata["BCG_likelihood"],
         c=metadata[condition_key],
         cmap=sample_cmap,
         legend=False,
         plot_means=False,
         xlabel=False,
-        ylabel="Mean chd likelihood",
+        ylabel="Mean BCG-state Likelihood",
         ax=ax,
     )
 
     ### This code will plot the ratio of pre:post cells per cluster
-    means = metadata.groupby(cluster_key)[cluster_key].mean()
-    ax.scatter(
-        means.index,
-        means - np.mean(metadata["genotype"]) + 0.5,
-        color="#e0d8f0",
-        edgecolor="k",
-        s=100,
-    )
+    means = metadata.groupby(cluster_key)["BCG_likelihood"].mean()
+    ax.scatter(means.index, means, color="#e0d8f0", edgecolor="k", s=100)
 
     # Axis tick labels
-    ax.set_xticklabels(
-        metadata.set_index("cluster_key")["cluster"].drop_duplicates().sort_index(),
-        rotation=90,
-    )
+    # TODO: Implement sorting better
+    #     ax.set_xticklabels(means.sort_values().index.values, rotation=90)
     ax.set_ylim(0, 1)
+    ax.set_xlabel("Phenograph Assigned Clusters")
+    ax.set_title("")
 
     fig.tight_layout()
     return fig
@@ -193,14 +191,7 @@ def run_meld_cytof(
     condition_key
     """
     logger.info("MELD: Sample Counts")
-    sample_cmap = {
-        condition1: "#fb6a4a",
-        condition2: "#08519c"
-        #        condition2: '#de2d26',
-        #         'chdC': '#a50f15',
-        #         'tyrA': '#6baed6',
-        #         'tyrB': '#3182bd',
-    }
+    sample_cmap = {condition1: "#fb6a4a", condition2: "#08519c"}
     fig, ax = plt.subplots(1)
     metadata = combined_adata.obs
     data = combined_adata.to_df()
@@ -214,18 +205,26 @@ def run_meld_cytof(
     ax.set_ylabel("Cells Counts Per Condition")
 
     fig.tight_layout()
-    fig.savefig(
-        "meld_condition_counts_{}_{}_{}.png".format(
-            condition_key, condition1, condition2
-        ),
-        dpi=200,
+    temp_figname = "meld_condition_counts_{}_{}_{}.png".format(
+        condition_key, condition1, condition2
     )
+    fig.savefig(FIGDIR + temp_figname, dpi=200)
+    logger.info("saved to: {}".format(temp_figname))
 
     # Meld Run Phate
     logger.info("MELD: Run Phate")
-    # We are not reducing dimensions here because CYTOF is already limited
+    # Reducing dimensions here because CYTOF is already limited
+    # TODO: make this an input to the script
+    # sqrt function has a similar form as the log function with the added benefit of being stable at 0.
+    data_libnorm, libsize = scprep.normalize.library_size_normalize(
+        data, return_library_size=True
+    )
+    metadata["library_size"] = libsize
+    data_sqrt = np.sqrt(data_libnorm)
+    # FOR THE CYTOF VERSION OF THIS FUNCTION: don't reduce via PCA bc we only have 42 channels.
     phate_op = phate.PHATE(knn=10, decay=10, n_jobs=-1)
-    data_phate = phate_op.fit_transform(data)
+    data_phate = phate_op.fit_transform(data_sqrt)
+
     fig = scprep.plot.scatter2d(
         data_phate,
         c=metadata[condition_key],
@@ -241,9 +240,9 @@ def run_meld_cytof(
         ticks=False,
     )
 
-    benchmarker = meld.Benchmarker()
     # 3D PHATE components are used to create the ground truth PDF
-    benchmarker.fit_phate(data)
+    # benchmarker = meld.Benchmarker()
+    # benchmarker.fit_phate(data)
 
     # Run Meld
     logger.info("MELD: Run MELD")
@@ -254,52 +253,48 @@ def run_meld_cytof(
         "Pre-BCG" if g == 0 else "Post-BCG" for g in metadata["condition"]
     ]
     metadata["replicate"] = metadata[condition_key]
+    # TODO: Implement benchmarking to find best parameter combinations
+    # TODO: look into MELD's failing unit tests
 
-    # G = gt.Graph(data_pca, knn=int(top_result['knn']), use_pygsp=True)
-    top_result = _parameter_search(combined_adata, benchmarker)
-    print(top_result)
     meld_op = meld.MELD(beta=67, knn=7)
     sample_densities = meld_op.fit_transform(
         data, sample_labels=metadata[condition_key]
     )
-    # Normalizing across samples.
-    logger.info("MELD: Normalizing Samples")
-    # Calculate Likelihoods
-    sample_likelihoods = _replicate_normalize_densities(
-        sample_densities, metadata["replicate"]
-    )
-    # Add to metadata
-    fig, axes = plt.subplots(1, 2, figsize=(13, 4))
-    experimental_samples = [condition1, condition2]
-    metadata["chd_likelihood"] = (
-        sample_likelihoods[experimental_samples].mean(axis=1).values
-    )
+    # Normalize across conditions.
+    logger.info("MELD: Normalizing")
+    sample_likelihoods = sklearn.preprocessing.normalize(sample_densities, norm="l1")
 
-    for i, ax in enumerate(axes):
-        curr_sample = experimental_samples[i]
-        scprep.plot.scatter2d(
-            data_phate,
-            c=sample_likelihoods[curr_sample],
-            cmap=meld.get_meld_cmap(),
-            vmin=0,
-            vmax=1,
-            title=curr_sample,
-            ticks=False,
-            ax=ax,
-        )
+    # Add to metadata
+    fig, axes = plt.subplots(1, 1, figsize=(13, 4))
+    experimental_samples = [condition1, condition2]
+    metadata["BCG_likelihood"] = sample_likelihoods[:, 1]
+
+    scprep.plot.scatter2d(
+        data_phate,
+        c=metadata["BCG_likelihood"],
+        cmap=meld.get_meld_cmap(),
+        vmin=0.2,
+        vmax=0.75,
+        title="Likelihood of Existing in BCG Refractory State",
+        ticks=False,
+        ax=axes,
+    )
 
     fig.tight_layout()
     fig.savefig(
-        "meld_phate_vfc__{}_{}_{}.png".format(condition_key, condition1, condition2),
+        FIGDIR
+        + "meld_phate_vfc__{}_{}_{}.png".format(condition_key, condition1, condition2),
         dpi=200,
     )
     fig = _plot_jitter_by_cluster(
         metadata, sample_cmap, cluster_key=cluster_key, condition_key=condition_key
     )
     fig.savefig(
-        "meld_jitter_vfc__{}_{}_{}.png".format(condition_key, condition1, condition2),
+        FIGDIR
+        + "meld_jitter_vfc__{}_{}_{}.png".format(condition_key, condition1, condition2),
         dpi=200,
     )
+    return metadata
 
 
 if __name__ == "__main__":
@@ -390,6 +385,7 @@ if __name__ == "__main__":
             temp.var_names_make_unique()
         adata_list.append(temp)
 
+    adata_list = adata_list[0:20]
     # TODO: ASK ABOUT BATCH CORRECTION!!!
     # import scanpy as sc
     # help(sc.pp.combat)
@@ -423,11 +419,9 @@ if __name__ == "__main__":
         {"I1D1": "Pre-BCG", "at recurrence": "Recurrence", "recurrence": "Recurrence"}
     )
 
-    # combined_mtx = AnnData.concatenate(
-    #         recurrent_mtx,
-    #         pre_mtx,
-    #         join='outer'
-    #     )
+    # subsample for debugging
+    subsample_index = np.random.choice(combined_mtx.shape[0], size=5000, replace=False)
+    combined_mtx = combined_mtx[subsample_index].copy()
 
     # Running Phenograph
     logger.info("Running Phenograph")
@@ -437,7 +431,6 @@ if __name__ == "__main__":
     combined_mtx.obs["PhenoGraph_clusters"] = pd.Categorical(communities)
     combined_mtx.uns["PhenoGraph_Q"] = Q
     combined_mtx.uns["PhenoGraph_k"] = k
-    # Writing for future analysis
 
     # Drawing UMAP
     logger.info("Drawing UMAP")
@@ -450,14 +443,13 @@ if __name__ == "__main__":
         save="phenograph test 01102022.png",
     )
 
-    # combined_mtx.write_h5ad('combined_mtx_MED_only.h5ad')
-
     # MELD
     logger.info("Running Meld")
-    run_meld_cytof(
+    metadata = run_meld_cytof(
         combined_adata=combined_mtx,
         condition1="Pre-BCG",
         condition2="Recurrence",
         condition_key="sample_type",
         cluster_key="PhenoGraph_clusters",
     )
+    metadata.write_csv("cytof_annotated_metadata.csv")
