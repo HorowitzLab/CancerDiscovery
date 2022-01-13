@@ -128,7 +128,6 @@ def preprocess_cytof(fcs_list, clinical_data, filter_dict, batch_key, channels=N
     condition_column = filter_dict["condition_column"]
     timepoint_list = filter_dict["timepoint_list"]
     timepoint_column = filter_dict["timepoint_column"]
-    sample_column = filter_dict["sample_column"]
 
     adata_list = _prepare_cytof(
         fcs_list, clinical_data, condition_list, channels=channels,
@@ -136,10 +135,10 @@ def preprocess_cytof(fcs_list, clinical_data, filter_dict, batch_key, channels=N
     concatenated = _concatenate_cytof(
         adata_list, condition_list, condition_column, timepoint_list, timepoint_column
     )
-    normalized = _normalize_cytof(concatenated)
+    concatenated.X = _normalize_cytof(concatenated)
     # TODO: any other covariates we need to take into account?
     processed = _batch_correct_cytof(
-        normalized, batch_key, covariates=[condition_column, timepoint_column]
+        concatenated, batch_key, covariates=[condition_column, timepoint_column]
     )
 
     return processed

@@ -375,12 +375,12 @@ if __name__ == "__main__":
     # Creating dictionary to filter our combined_mtx by
     filter_dict = {
         "condition_column": "condition",
-        "timepoint_column": "sample_type",
+        "timepoint_column": "timepoint",
         "condition_list": ["MED"],
         "timepoint_list": ["Pre-BCG", "Recurrence"],
     }
     combined_mtx = cytof_tools.preprocess_cytof(
-        fcs_list, clinical, filter_dict, batch_key="", channels=channels_of_interest
+        fcs_list, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
     )
     combined_mtx.obs["sample_type"] = combined_mtx.obs["sample_type"]
 
