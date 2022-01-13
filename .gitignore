@@ -165,3 +165,9 @@ dmypy.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Big Fat Massive Huge Data Directories #
+#########################################
+data/
+Data/
+
