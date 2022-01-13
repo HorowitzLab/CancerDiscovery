@@ -303,7 +303,7 @@ if __name__ == "__main__":
     os.chdir('/sc/arion/projects/nmibc/CancerDiscovery/data')
     # Listing and importing the FCS files; extracting their condition as well
     fcs_list = []
-    condition_list = []
+    fcs_conditions = []
     directory = os.fsencode(".")
     for file in os.listdir(directory):
         filename = os.fsdecode(file)
@@ -316,7 +316,7 @@ if __name__ == "__main__":
                 condition = "RAJI"
             elif "MED" in filename:
                 condition = "MED"
-            condition_list.append(condition)
+            fcs_conditions.append(condition)
 
     # Too many channels - limiting to those conjugated to metals we want
     channels_of_interest = [
@@ -380,7 +380,7 @@ if __name__ == "__main__":
         "timepoint_list": ["Pre-BCG", "Recurrence"],
     }
     combined_mtx = cytof_tools.preprocess_cytof(
-        fcs_list, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
     )
     combined_mtx.obs["sample_type"] = combined_mtx.obs["sample_type"]
 

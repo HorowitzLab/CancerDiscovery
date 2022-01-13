@@ -34,16 +34,16 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-def _prepare_cytof(fcs_list, clinical_data, condition_list, channels=None):
+def _prepare_cytof(fcs_list, fcs_conditions, clinical_data, channels=None):
     """
     fcs_list: a list of FCS structures 
     clinical_data: a pandas dataframe to add to the FCS obs. 
     channels: a list of valid channels to filter the FCS.data object by
-    condition_list: a condition to add to the obs manually. 
+    fcs_conditions: a condition to add to the obs manually. 
     """
     logger.info("Preparing cytof data")
     adata_list = []
-    for fcs, condition in zip(fcs_list, condition_list):
+    for fcs, condition in zip(fcs_list, fcs_conditions):
         filter_list = []
         for sample in clinical_data.sampleID:
             if str(sample) in str(fcs.ID):
@@ -65,13 +65,13 @@ def _prepare_cytof(fcs_list, clinical_data, condition_list, channels=None):
 
 
 def _concatenate_cytof(
-    adata_list, condition_list, condition_column, timepoint_list, timepoint_column
+    adata_list, conditions_of_interest, condition_column, timepoints_of_interest, timepoint_column
 ):
     """
     adata_list: list of adata structures
-    condition_list: list of conditions to filter by
+    conditions_of_interest: list of conditions to filter by
     condition_column: column in adata.obs to filter conditions by
-    timepoint_list: list of timepoints to filter by
+    timepoints_of_interest: list of timepoints to filter by
     timepoint_column: column in adata.obs to filter timepoints by
 
 
@@ -81,8 +81,8 @@ def _concatenate_cytof(
     total_mtx = adata_list[0]
     for mtx in adata_list[1:]:
         total_mtx = AnnData.concatenate(total_mtx, mtx, join="outer")
-    filtered_1 = total_mtx[total_mtx.obs[condition_column].isin(condition_list)]
-    final = filtered_1[filtered_1.obs[timepoint_column].isin(timepoint_list)]
+    filtered_1 = total_mtx[total_mtx.obs[condition_column].isin(conditions_of_interest)]
+    final = filtered_1[filtered_1.obs[timepoint_column].isin(timepoints_of_interest)]
     return final
 
 
@@ -112,28 +112,28 @@ def _batch_correct_cytof(adata, batch_key, covariates):
     return sc.pp.combat(adata, key=batch_key, covariates=covariates)
 
 
-def preprocess_cytof(fcs_list, clinical_data, filter_dict, batch_key, channels=None):
+def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch_key, channels=None):
     """
     fcs_list: a LIST of FCS structures 
     clinical_data: PD DATAFRAME  
     filter_dict requires 5 keys: 
-        condition_list
+        conditions_of_interest
         condition_column
-        timepoint_list
+        timepoints_of_interest
         timepoint_column 
     batch_key = the sample ID column
     channels: a LIST of valid channels to filter the FCS data channels by
     """
-    condition_list = filter_dict["condition_list"]
+    conditions_of_interest = filter_dict["conditions_of_interest"]
     condition_column = filter_dict["condition_column"]
-    timepoint_list = filter_dict["timepoint_list"]
+    timepoints_of_interest = filter_dict["timepoints_of_interest"]
     timepoint_column = filter_dict["timepoint_column"]
 
     adata_list = _prepare_cytof(
-        fcs_list, clinical_data, condition_list, channels=channels,
+        fcs_list, fcs_conditions, clinical_data, channels=channels,
     )
     concatenated = _concatenate_cytof(
-        adata_list, condition_list, condition_column, timepoint_list, timepoint_column
+        adata_list, conditions_of_interest, condition_column, timepoints_of_interest, timepoint_column
     )
     concatenated.X = _normalize_cytof(concatenated)
     # TODO: any other covariates we need to take into account?
