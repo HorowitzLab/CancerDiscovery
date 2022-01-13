@@ -300,7 +300,7 @@ def run_meld_cytof(
     return metadata
 
 if __name__ == "__main__":
-    os.chdir('/sc/arion/projects/nmibc/CancerDiscovery/data')
+    os.chdir('/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/CancerDiscovery_BCG_CyTOF')
     # Listing and importing the FCS files; extracting their condition as well
     fcs_list = []
     fcs_conditions = []
@@ -376,8 +376,8 @@ if __name__ == "__main__":
     filter_dict = {
         "condition_column": "condition",
         "timepoint_column": "timepoint",
-        "condition_list": ["MED"],
-        "timepoint_list": ["Pre-BCG", "Recurrence"],
+        "conditions_of_interest": ["MED"],
+        "timepoints_of_interest": ["Pre-BCG", "Recurrence"],
     }
     combined_mtx = cytof_tools.preprocess_cytof(
         fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
