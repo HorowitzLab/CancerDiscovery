@@ -299,8 +299,8 @@ def run_meld_cytof(
     )
     return metadata
 
-
 if __name__ == "__main__":
+    os.chdir('/sc/arion/projects/nmibc/CancerDiscovery/data')
     # Listing and importing the FCS files; extracting their condition as well
     fcs_list = []
     condition_list = []

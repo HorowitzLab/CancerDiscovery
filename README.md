@@ -19,7 +19,7 @@ Code for all cancer discovery analyses and figures.
     - [Phenograph for clustering](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1917-7)
     - [MELD](https://www.nature.com/articles/s41587-020-00803-5) 
 ## Figure 5: Spatial Sequencing
-- The script is located here
+
 ## Figure 6: Co-Culture Analysis
 -
 
