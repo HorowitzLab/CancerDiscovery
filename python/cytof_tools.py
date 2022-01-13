@@ -136,9 +136,10 @@ def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch
         adata_list, conditions_of_interest, condition_column, timepoints_of_interest, timepoint_column
     )
     concatenated.X = _normalize_cytof(concatenated)
-    # TODO: any other covariates we need to take into account?
+    # TODO: currently trying to add covariates makes the script fail due to singular matrix
+    # TODO: investigate why scanpy.pp.combat fails for our two covariates (time and condition)
     processed = _batch_correct_cytof(
-        concatenated, batch_key, covariates=[condition_column, timepoint_column]
+        concatenated, batch_key, covariates=[]
     )
 
     return processed
