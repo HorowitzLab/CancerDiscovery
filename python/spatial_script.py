@@ -26,8 +26,8 @@ import scipy
 
 import anndata as ad
 from anndata import AnnData
-import scanorama
-import tangram
+# import scanorama
+# import tangram
 import scanpy as sc
 import scanpy.external as sce
 import squidpy as sq
@@ -36,7 +36,7 @@ import tangram as tg
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from adjustText import adjust_text
+# from adjustText import adjust_text
 
 # Local Imports
 from spatial_tools import *
@@ -174,31 +174,38 @@ if __name__ == "__main__":
         '37236',
         '37249',
     ]
+
+    # current data dir
     data_dir = "/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/spatial/"
+
     wangy_path = 'jan2022exp/wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD005713_AmirHorowitz/'
+    target = data_dir+wangy_path
     nmibc_path_list = []
     sample_ids = []
-    for item in os.listdir(data_dir+wangy_path):
-        if os.path.isdir(os.path.join(wangy_path, item)) & (str(item) in jan22_spatial_files):
+    for item in os.listdir(target):
+        if os.path.isdir(os.path.join(target, item)) & (str(item) in jan22_spatial_files):
             sample_ids.append(str(item))
-            nmibc_path_list.append(wangy_path+'/'+item+'/outs')
+            nmibc_path_list.append(target+'/'+item+'/outs')
     visium_new = read_10x_path_list(nmibc_path_list, sample_ids)
+    print(visium_new)
 
     # Old spatial_files
     wangy_path = 'wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD01392_JohnSfakianos'
+    target = data_dir+wangy_path
     nmibc_path_list = []
     sample_ids = []
-    for item in os.listdir(data_dir+wangy_path):
-        if os.path.isdir(os.path.join(wangy_path, item)) & ('bladder' in str(item).lower()):
+    for item in os.listdir(target):
+        if os.path.isdir(os.path.join(target, item)) & ('bladder' in str(item).lower()):
             sample_ids.append(str(item))
-            nmibc_path_list.append(wangy_path+'/'+item+'/outs')
+            nmibc_path_list.append(target+'/'+item+'/outs')
     visium_old = read_10x_path_list(nmibc_path_list, sample_ids)
+    print(visium_old)
     
     # Combine the extracted files from the experimental dirs
     spatial_obs = visium_new+visium_old
 
     # Importing the clinical data
-    clinical_info = pd.read_excel('spatial_clinical_anon.xlsx')
+    clinical_info = pd.read_excel(data_dir+'spatial_clinical_anon.xlsx')
     clinical_info['sample_id'] = clinical_info['BRP ID#']
     clinical_info['timepoint'] = clinical_info['Characterization']
 
