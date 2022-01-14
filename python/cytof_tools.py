@@ -109,7 +109,8 @@ def _batch_correct_cytof(adata, batch_key, covariates):
 
     """
     logger.info("Batch correcting cytof data")
-    return sc.pp.combat(adata, key=batch_key, covariates=covariates)
+    # TODO: hardcoding none to the covariates here. 
+    return sc.pp.combat(adata, key=batch_key, covariates=None, inplace=False)
 
 
 def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch_key, channels=None):
@@ -138,8 +139,8 @@ def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch
     concatenated.X = _normalize_cytof(concatenated)
     # TODO: currently trying to add covariates makes the script fail due to singular matrix
     # TODO: investigate why scanpy.pp.combat fails for our two covariates (time and condition)
-    processed = _batch_correct_cytof(
-        concatenated, batch_key, covariates=[]
-    )
-
-    return processed
+    # TODO: we can't regress out batch differences sample by sample. thats dumb.  
+    #     concatenated.X = _batch_correct_cytof(
+    #         concatenated, batch_key, covariates=[]
+    #     )
+    return concatenated

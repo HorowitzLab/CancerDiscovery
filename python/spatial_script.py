@@ -2,7 +2,6 @@
 
 This script follows the following analysis format
 - Initial processing (normalization, log transformation, min and max cell filtering, neighbors analysis, and leiden clustering)
-- Scanorama batch correction
 - Concatenation
 - 
 """
@@ -71,6 +70,11 @@ sc.settings.verbosity = 3
 
 
 def create_paths(
+    '''
+    A very specific function to walk down the wangy spatial path and return scRNA objects
+    Not modular at all lol 
+    
+    '''
     spatial_path="wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD01392_JohnSfakianos",
 ):
     # Creating a list of targets along with my path to the visium data
@@ -87,6 +91,11 @@ def create_paths(
 
 
 def initial_processing(spatial_object):
+    '''
+    Process each spatial object according to standard processing guidelines
+    
+    
+    '''
     sc.pp.normalize_total(spatial_object, inplace=True)
     sc.pp.log1p(spatial_object)
     sc.pp.highly_variable_genes(
@@ -101,6 +110,9 @@ def initial_processing(spatial_object):
 
 
 def object_concatenation(corrected_spatial):
+    '''
+    TODO: need to make this modular. 
+    '''
     combined_2 = corrected_spatial[0].concatenate(
         corrected_spatial[1],
         uns_merge="unique",

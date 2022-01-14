@@ -98,7 +98,7 @@ def _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key, condition_key):
         metadata[cluster_key],
         metadata["BCG_likelihood"],
         c=metadata[condition_key],
-        cmap=sample_cmap,
+#         cmap=sample_cmap,
         legend=False,
         plot_means=False,
         xlabel=False,
@@ -184,7 +184,7 @@ def _parameter_search(adata, benchmarker):
 
 
 def run_meld_cytof(
-    combined_adata, condition1, condition2, cluster_key, condition_key="sample_type"
+    combined_adata, condition1, condition2, cluster_key, condition_key="timepoint"
 ):
     """
     The entire meld algorithm start to finish will be contained in here. 
@@ -216,17 +216,18 @@ def run_meld_cytof(
 
     # Meld Run Phate
     logger.info("MELD: Run Phate")
-    # Reducing dimensions here because CYTOF is already limited
-    # TODO: make this an input to the script
-    # sqrt function has a similar form as the log function with the added benefit of being stable at 0.
+    
+    # TODO: make this an input to the script    
     data_libnorm, libsize = scprep.normalize.library_size_normalize(
         data, return_library_size=True
     )
     metadata["library_size"] = libsize
-    data_sqrt = np.sqrt(data_libnorm)
-    # FOR THE CYTOF VERSION OF THIS FUNCTION: don't reduce via PCA bc we only have 42 channels.
+    
+    # Two notes: we already transformed the data, so don't need to take sqrt here
+    # CYTOF only has 42 channels so no dimensionality reduction prior to this
+    
     phate_op = phate.PHATE(knn=10, decay=10, n_jobs=-1)
-    data_phate = phate_op.fit_transform(data_sqrt)
+    data_phate = phate_op.fit_transform(data)
 
     fig = scprep.plot.scatter2d(
         data_phate,
@@ -253,7 +254,7 @@ def run_meld_cytof(
         1 if sl.startswith(condition2) else 0 for sl in metadata[condition_key]
     ]
     metadata["condition_name"] = [
-        "Pre-BCG" if g == 0 else "Post-BCG" for g in metadata["condition"]
+        "Cond 1" if g == 0 else "Cond 2" for g in metadata["condition"]
     ]
     metadata["replicate"] = metadata[condition_key]
     # TODO: Implement benchmarking to find best parameter combinations
@@ -372,49 +373,84 @@ if __name__ == "__main__":
 
     # Debugging - need to remove one non-specific AHBCG17
     clinical.drop(53, inplace=True)
-    # Creating dictionary to filter our combined_mtx by
+    
+    # DEBUG
+    # logger.info("Subsampling!!! Take me out!")
+    # subsample_index = np.random.choice(adata.shape[0], size=5000, replace=False)
+    # adata = adata[subsample_index].copy()
+    
+    # PRE VS POST 
     filter_dict = {
         "condition_column": "condition",
         "timepoint_column": "timepoint",
         "conditions_of_interest": ["MED"],
         "timepoints_of_interest": ["Pre-BCG", "Recurrence"],
     }
-    combined_mtx = cytof_tools.preprocess_cytof(
+    mtx_prepost = cytof_tools.preprocess_cytof(
         fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
     )
-    combined_mtx.obs["sample_type"] = combined_mtx.obs["sample_type"]
+    # RECURRENCE MED VS RAJI
+    filter_dict = {
+        "condition_column": "condition",
+        "timepoint_column": "timepoint",
+        "conditions_of_interest": ["MED",'RAJI'],
+        "timepoints_of_interest": ["Recurrence"],
+    }
+    mtx_raji = cytof_tools.preprocess_cytof(
+        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+    )
+    # RECURRENCE MED VS RAJI
+    filter_dict = {
+        "condition_column": "condition",
+        "timepoint_column": "timepoint",
+        "conditions_of_interest": ["MED", 'K562'],
+        "timepoints_of_interest": ["Recurrence"],
+    }
+    mtx_k562 = cytof_tools.preprocess_cytof(
+        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+    )
 
-    # subsample for debugging
-    # subsample_index = np.random.choice(combined_mtx.shape[0], size=5000, replace=False)
-    # combined_mtx = combined_mtx[subsample_index].copy()
 
     # Running Phenograph
-    logger.info("Running Phenograph")
-    k = 30
-    sc.tl.pca(combined_mtx, n_comps=10)
-    communities, graph, Q = sce.tl.phenograph(combined_mtx.obsm["X_pca"], k=k)
-    combined_mtx.obs["PhenoGraph_clusters"] = pd.Categorical(communities)
-    combined_mtx.uns["PhenoGraph_Q"] = Q
-    combined_mtx.uns["PhenoGraph_k"] = k
+    
+    meld_dict = {
+        'Pre vs Post':{'condition1': 'Pre-BCG', 'condition2':'Recurrence','condition_key':'timepoint'},
+        'Recurrence Med vs Raji':{'condition1': 'MED', 'condition2':'RAJI','condition_key':'condition'},
+        'Recurrence Med vs K562':{'condition1': 'MED', 'condition2':'K562','condition_key':'condition'},
+    }
+    
+    for iteration, adata in zip(['Recurrence Med vs Raji', 'Recurrence Med vs K562','Pre vs Post',], [mtx_raji, mtx_k562,mtx_prepost]):
+        logger.info('{} Iteration has begun'.format(iteration))                        
+        condition_key = meld_dict[iteration]['condition_key']
+        condition1 = meld_dict[iteration]['condition1']
+        condition2 = meld_dict[iteration]['condition2']
+        logger.info("Phenograph")
+        
+        k = 30
+        sc.tl.pca(adata, n_comps=10)
+        communities, graph, Q = sce.tl.phenograph(adata.obsm["X_pca"], k=k)
+        adata.obs["PhenoGraph_clusters"] = pd.Categorical(communities)
+        adata.uns["PhenoGraph_Q"] = Q
+        adata.uns["PhenoGraph_k"] = k
 
-    # Drawing UMAP
-    logger.info("Drawing UMAP")
-    sc.pp.neighbors(combined_mtx, n_neighbors=30, n_pcs=10)
-    sc.tl.umap(combined_mtx)
-    sc.pl.umap(
-        combined_mtx,
-        color=["PhenoGraph_clusters", "sample_type"],
-        title="PhenoGraph Assigned Clusters: Cytof Data Pre BCG vs Recurrence",
-        save="phenograph test 01102022.png",
-    )
+        # Drawing UMAP
+        logger.info("Drawing UMAP")
+        sc.pp.neighbors(adata, n_neighbors=30, n_pcs=10)
+        sc.tl.umap(adata)
+        sc.pl.umap(
+           adata,
+           color=["PhenoGraph_clusters", "sample_type"],
+           title="PhenoGraph Assigned Clusters: {}".format(iteration),
+           save="phenograph {} 01102022.png".format(iteration),
+        )
 
-    # MELD
-    logger.info("Running Meld")
-    metadata = run_meld_cytof(
-        combined_adata=combined_mtx,
-        condition1="Pre-BCG",
-        condition2="Recurrence",
-        condition_key="sample_type",
-        cluster_key="PhenoGraph_clusters",
-    )
-    metadata.to_csv("cytof_anndata/cytof_annotated_metadata.csv")
+        # MELD
+        logger.info("Running Meld")
+        metadata = run_meld_cytof(
+            combined_adata=adata,
+            condition1=condition1,
+            condition2=condition2,
+            condition_key=condition_key,
+            cluster_key="PhenoGraph_clusters",
+        )
+        metadata.to_csv("cytof_anndata/cytof_annotated_metadata {}.csv".format(condition_key))
