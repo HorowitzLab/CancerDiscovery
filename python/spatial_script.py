@@ -42,7 +42,7 @@ from adjustText import adjust_text
 from spatial_tools import *
 
 # FOR LOGGING
-logger = logging.getLogger("simple_example")
+logger = logging.getLogger("SPATIAL_SCRIPT")
 logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
@@ -70,13 +70,12 @@ sc.settings.verbosity = 3
 
 
 def create_paths(
+    spatial_path="wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD01392_JohnSfakianos",
+):
     '''
     A very specific function to walk down the wangy spatial path and return scRNA objects
     Not modular at all lol 
-    
     '''
-    spatial_path="wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD01392_JohnSfakianos",
-):
     # Creating a list of targets along with my path to the visium data
     nmibc_path_list = []
     sample_ids = []
@@ -90,65 +89,52 @@ def create_paths(
     return nmibc_sections, sample_ids
 
 
-def initial_processing(spatial_object):
+def initial_processing(spatial_obs):
     '''
     Process each spatial object according to standard processing guidelines
+        - normalize data 
+        - log transform
+        - filter cells 250 < genes < 35000
+    spatial_obs: a list of adata objects
+    returns spatial_obs_filtered (nonzero adata objects filtered)
+    '''
+
+    # Filtering each spatial object inplace
+    # normalize; log transform; filter 250 < x < 35000
+    # keep objects that passed filtering threshold
+    spatial_obs_filtered = []
+    for adata in spatial_obs:
+        sc.pp.normalize_total(adata, inplace=True)
+        sc.pp.log1p(adata)
+        sc.pp.filter_cells(adata, min_counts=250, inplace=True)
+        sc.pp.filter_cells(adata, max_counts=35000, inplace=True)
+        if len(adata.obs) > 0:
+            spatial_obs_filtered.append(adata)
+    return spatial_obs_filtered
+
+
+def object_concatenation(adata_list):
+    '''
+    Take in a list of spatial adatas and concatenate them
+    return a single concatenated obect
+    '''
+    # Concatenate all objects into a single AnnData Object 
+    concatenated = adata_list[0]
+    for item in adata_list[1:]:
+        concatenated = concatenated.concatenate(
+            item,
+            uns_merge="unique",
+            batch_categories=[
+                k
+                for d in [
+                    concatenated[0].uns["spatial"],
+                    item[1].uns["spatial"],
+                ]
+                for k, v in d.items()
+            ],
+        )
+    return concatenated
     
-    
-    '''
-    sc.pp.normalize_total(spatial_object, inplace=True)
-    sc.pp.log1p(spatial_object)
-    sc.pp.highly_variable_genes(
-        spatial_object, flavor="seurat", n_top_genes=2000, inplace=True
-    )
-    sc.pp.filter_cells(spatial_object, min_counts=500, inplace=True)
-    sc.pp.filter_cells(spatial_object, max_counts=35000, inplace=True)
-    if len(spatial_object.obs) > 0:
-        sc.pp.neighbors(spatial_object, n_neighbors=15, n_pcs=50)
-        sc.tl.leiden(spatial_object, key_added="clusters")
-        return spatial_object
-
-
-def object_concatenation(corrected_spatial):
-    '''
-    TODO: need to make this modular. 
-    '''
-    combined_2 = corrected_spatial[0].concatenate(
-        corrected_spatial[1],
-        uns_merge="unique",
-        batch_categories=[
-            k
-            for d in [
-                corrected_spatial[0].uns["spatial"],
-                corrected_spatial[1].uns["spatial"],
-            ]
-            for k, v in d.items()
-        ],
-    )
-
-    combined_1 = corrected_spatial[2].concatenate(
-        corrected_spatial[3],
-        uns_merge="unique",
-        batch_categories=[
-            k
-            for d in [
-                corrected_spatial[2].uns["spatial"],
-                corrected_spatial[3].uns["spatial"],
-            ]
-            for k, v in d.items()
-        ],
-    )
-
-    combined = combined_1.concatenate(
-        combined_2,
-        uns_merge="unique",
-        batch_categories=[
-            k
-            for d in [combined_1[0].uns["spatial"], combined_2[1].uns["spatial"],]
-            for k, v in d.items()
-        ],
-    )
-    return combined
 
 
 def run_tangram(spatial, singleCell):
@@ -177,34 +163,77 @@ def run_tangram(spatial, singleCell):
 
 
 if __name__ == "__main__":
-    # Quality control for each NMIBC figure
-    logger.info("Starting QC")
-    nmibc_sections, sample_ids = create_paths()
-    processed = []
-    for spatial_object in nmibc_sections:
-        temp = initial_processing(spatial_object)
-        processed.append(temp)
+    # New Spatial Files
+    jan22_spatial_files = [
+        '13538',
+        '16235',
+        '20121',
+        '27173',
+        '28537',
+        '30150',
+        '37236',
+        '37249',
+    ]
+    data_dir = "/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/spatial/"
+    wangy_path = 'jan2022exp/wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD005713_AmirHorowitz/'
+    nmibc_path_list = []
+    sample_ids = []
+    for item in os.listdir(data_dir+wangy_path):
+        if os.path.isdir(os.path.join(wangy_path, item)) & (str(item) in jan22_spatial_files):
+            sample_ids.append(str(item))
+            nmibc_path_list.append(wangy_path+'/'+item+'/outs')
+    visium_new = read_10x_path_list(nmibc_path_list, sample_ids)
 
-    # Picking out samples 8, 9, 10, 11
-    logger.info("Starting concatenation and scanorama")
-    nmibc_good_quality = [processed[i] for i in [0, 4, 5, 9]]
-    sample_ids_good_quality = [sample_ids[i] for i in [0, 4, 5, 9]]
-    corrected_spatial = scanorama.correct_scanpy(nmibc_good_quality, return_dimred=True)
-    combined = object_concatenation(corrected_spatial)
+    # Old spatial_files
+    wangy_path = 'wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD01392_JohnSfakianos'
+    nmibc_path_list = []
+    sample_ids = []
+    for item in os.listdir(data_dir+wangy_path):
+        if os.path.isdir(os.path.join(wangy_path, item)) & ('bladder' in str(item).lower()):
+            sample_ids.append(str(item))
+            nmibc_path_list.append(wangy_path+'/'+item+'/outs')
+    visium_old = read_10x_path_list(nmibc_path_list, sample_ids)
+    
+    # Combine the extracted files from the experimental dirs
+    spatial_obs = visium_new+visium_old
 
-    # neighbors / umap / leiden with all samples combined
-    logger.info("Starting neighbors / umap / leiden")
-    sc.pp.neighbors(combined, use_rep="X_scanorama")
-    sc.tl.umap(combined)
-    sc.tl.leiden(combined, key_added="clusters")
+    # Importing the clinical data
+    clinical_info = pd.read_excel('spatial_clinical_anon.xlsx')
+    clinical_info['sample_id'] = clinical_info['BRP ID#']
+    clinical_info['timepoint'] = clinical_info['Characterization']
+
+    # Filter Objects
+    spatial_obs_filtered = initial_processing(spatial_obs)
+
+    # Concatenate all objects into a single AnnData Object 
+    concatenated = object_concatenation(spatial_obs_filtered)
+    sc.pp.filter_genes(concatenated, min_counts=concatenated.shape[0]*.01)
+
+    # Fixing keys. 
+    for oldkey in concatenated.uns['spatial'].keys():
+        if oldkey.startswith('st_count'):
+            for newkey in set(concatenated.obs.sample_id):
+                if newkey in oldkey:
+                    print(newkey)
+                    print(oldkey)
+                    concatenated.uns['spatial'][newkey] = concatenated.uns['spatial'].pop(oldkey)
+    # Joining to clinical data
+    concatenated.obs['sample_id'] = concatenated.obs['sample_id'].astype('str')
+    temp = pd.merge(
+        concatenated.obs, 
+        clinical_info[['sample_id','timepoint']].astype(str), 
+        left_on = 'sample_id', 
+        right_on = 'sample_id')
+    temp.index = concatenated.obs.index
+    concatenated.obs.timepoint = temp.timepoint
 
     # Tangram / labelling analysis
     logger.info("Starting tangram and deconvolution")
     labelled_sc = ad.read_h5ad(
-        "/sc/arion/projects/nmibc_bcg/data/spatial/scSeq_labelled/Spatial/alice_converted.h5ad"
+        data_dir+"scSeq_labelled/Spatial/alice_converted.h5ad"
     )
     print(labelled_sc.obs)
 
-    combined_labelled = run_tangram(combined, labelled_sc)
+    combined_labelled = run_tangram(concatenated, labelled_sc)
     logger.info("Tangram Done. Saving the h5ad.")
     combined_labelled.write_h5ad("labelled_spatial_tangram.h5ad")
