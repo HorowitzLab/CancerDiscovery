@@ -26,7 +26,7 @@ import scipy
 
 import anndata as ad
 from anndata import AnnData
-# import scanorama
+import scanorama
 # import tangram
 import scanpy as sc
 import scanpy.external as sce
@@ -40,6 +40,7 @@ from matplotlib.lines import Line2D
 
 # Local Imports
 from spatial_tools import *
+import customTGplotting
 
 # FOR LOGGING
 logger = logging.getLogger("SPATIAL_SCRIPT")
@@ -67,6 +68,15 @@ sc.set_figure_params(
     dpi=100,
 )
 sc.settings.verbosity = 3
+
+def cell_seg_count(adata):
+    sq.im.process(img=adata, layer="image", method="smooth")
+    sq.im.segment(
+        img=img,
+        layer="image_smooth",
+        method="watershed",
+        channel=0,
+    )
 
 
 def create_paths(
@@ -141,7 +151,7 @@ def run_tangram(spatial, singleCell):
     sc.tl.rank_genes_groups(singleCell, groupby="cell.type", use_raw=False)
 
     markers_df = pd.DataFrame(singleCell.uns["rank_genes_groups"]["names"]).iloc[
-        0:100, :
+        0:1000, :
     ]
     genes_sc = np.unique(markers_df.melt().value.values)
     genes_st = spatial.var_names.values
@@ -154,11 +164,12 @@ def run_tangram(spatial, singleCell):
         spatial,
         mode="clusters",
         cluster_label="cell.type",
-        # density_prior=np.array(spatial.obs.cell_count) / spatial.obs.cell_count.sum(),
         num_epochs=500,
         device="cpu",
     )
     tg.project_cell_annotations(ad_map, spatial, annotation="cell.type")
+    import pdb; pdb.set_trace()
+    
     return spatial
 
 
@@ -203,17 +214,34 @@ if __name__ == "__main__":
     
     # Combine the extracted files from the experimental dirs
     spatial_obs = visium_new+visium_old
+    spatial_obs_filtered = initial_processing(spatial_obs_labelled)
+    
+    ##########################################################
+    # Attempting to fix the predictions! 
+    ##########################################################
+    
+    # Tangram / labelling analysis
+    logger.info("Starting tangram and deconvolution")
+    labelled_sc = ad.read_h5ad(
+        data_dir+"scSeq_labelled/Spatial/alice_converted.h5ad"
+    )
+    spatial_obs_filtered_labelled = []
+    print(labelled_sc.obs)
+    for adata in spatial_obs_filtered:
+        adata_filtered_labelled = run_tangram(adata, labelled_sc)
+        spatial_obs_filtered_labelled.append(adata_filtered_labelled)
+        
+    logger.info("Tangram Done.")
+    ##########################################################
+    ##########################################################
 
     # Importing the clinical data
     clinical_info = pd.read_excel(data_dir+'spatial_clinical_anon.xlsx')
     clinical_info['sample_id'] = clinical_info['BRP ID#']
     clinical_info['timepoint'] = clinical_info['Characterization']
-
-    # Filter Objects
-    spatial_obs_filtered = initial_processing(spatial_obs)
-
+        
     # Concatenate all objects into a single AnnData Object 
-    concatenated = object_concatenation(spatial_obs_filtered)
+    concatenated = object_concatenation(spatial_obs_filtered_labelled)
     sc.pp.filter_genes(concatenated, min_counts=concatenated.shape[0]*.01)
 
     # Fixing keys. 
@@ -234,13 +262,5 @@ if __name__ == "__main__":
     temp.index = concatenated.obs.index
     concatenated.obs.timepoint = temp.timepoint
 
-    # Tangram / labelling analysis
-    logger.info("Starting tangram and deconvolution")
-    labelled_sc = ad.read_h5ad(
-        data_dir+"scSeq_labelled/Spatial/alice_converted.h5ad"
-    )
-    print(labelled_sc.obs)
-
-    combined_labelled = run_tangram(concatenated, labelled_sc)
-    logger.info("Tangram Done. Saving the h5ad.")
     combined_labelled.write_h5ad("labelled_spatial_tangram.h5ad")
+    projected_genes.write_h5ad("projected_genes_tangram.h5ad")
