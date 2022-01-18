@@ -98,7 +98,7 @@ def _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key, condition_key):
         metadata[cluster_key],
         metadata["BCG_likelihood"],
         c=metadata[condition_key],
-#         cmap=sample_cmap,
+        #         cmap=sample_cmap,
         legend=False,
         plot_means=False,
         xlabel=False,
@@ -216,16 +216,16 @@ def run_meld_cytof(
 
     # Meld Run Phate
     logger.info("MELD: Run Phate")
-    
-    # TODO: make this an input to the script    
+
+    # TODO: make this an input to the script
     data_libnorm, libsize = scprep.normalize.library_size_normalize(
         data, return_library_size=True
     )
     metadata["library_size"] = libsize
-    
+
     # Two notes: we already transformed the data, so don't need to take sqrt here
     # CYTOF only has 42 channels so no dimensionality reduction prior to this
-    
+
     phate_op = phate.PHATE(knn=10, decay=10, n_jobs=-1)
     data_phate = phate_op.fit_transform(data)
 
@@ -300,8 +300,11 @@ def run_meld_cytof(
     )
     return metadata
 
+
 if __name__ == "__main__":
-    os.chdir('/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/CancerDiscovery_BCG_CyTOF')
+    os.chdir(
+        "/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/CancerDiscovery_BCG_CyTOF"
+    )
     # Listing and importing the FCS files; extracting their condition as well
     fcs_list = []
     fcs_conditions = []
@@ -373,13 +376,13 @@ if __name__ == "__main__":
 
     # Debugging - need to remove one non-specific AHBCG17
     clinical.drop(53, inplace=True)
-    
+
     # DEBUG
     # logger.info("Subsampling!!! Take me out!")
     # subsample_index = np.random.choice(adata.shape[0], size=5000, replace=False)
     # adata = adata[subsample_index].copy()
-    
-    # PRE VS POST 
+
+    # PRE VS POST
     filter_dict = {
         "condition_column": "condition",
         "timepoint_column": "timepoint",
@@ -387,45 +390,74 @@ if __name__ == "__main__":
         "timepoints_of_interest": ["Pre-BCG", "Recurrence"],
     }
     mtx_prepost = cytof_tools.preprocess_cytof(
-        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+        fcs_list,
+        fcs_conditions,
+        clinical,
+        filter_dict,
+        batch_key="sampleID",
+        channels=channels_of_interest,
     )
     # RECURRENCE MED VS RAJI
     filter_dict = {
         "condition_column": "condition",
         "timepoint_column": "timepoint",
-        "conditions_of_interest": ["MED",'RAJI'],
+        "conditions_of_interest": ["MED", "RAJI"],
         "timepoints_of_interest": ["Recurrence"],
     }
     mtx_raji = cytof_tools.preprocess_cytof(
-        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+        fcs_list,
+        fcs_conditions,
+        clinical,
+        filter_dict,
+        batch_key="sampleID",
+        channels=channels_of_interest,
     )
     # RECURRENCE MED VS RAJI
     filter_dict = {
         "condition_column": "condition",
         "timepoint_column": "timepoint",
-        "conditions_of_interest": ["MED", 'K562'],
+        "conditions_of_interest": ["MED", "K562"],
         "timepoints_of_interest": ["Recurrence"],
     }
     mtx_k562 = cytof_tools.preprocess_cytof(
-        fcs_list, fcs_conditions, clinical, filter_dict, batch_key="sampleID", channels=channels_of_interest
+        fcs_list,
+        fcs_conditions,
+        clinical,
+        filter_dict,
+        batch_key="sampleID",
+        channels=channels_of_interest,
     )
 
-
     # Running Phenograph
-    
+
     meld_dict = {
-        'Pre vs Post':{'condition1': 'Pre-BCG', 'condition2':'Recurrence','condition_key':'timepoint'},
-        'Recurrence Med vs Raji':{'condition1': 'MED', 'condition2':'RAJI','condition_key':'condition'},
-        'Recurrence Med vs K562':{'condition1': 'MED', 'condition2':'K562','condition_key':'condition'},
+        "Pre vs Post": {
+            "condition1": "Pre-BCG",
+            "condition2": "Recurrence",
+            "condition_key": "timepoint",
+        },
+        "Recurrence Med vs Raji": {
+            "condition1": "MED",
+            "condition2": "RAJI",
+            "condition_key": "condition",
+        },
+        "Recurrence Med vs K562": {
+            "condition1": "MED",
+            "condition2": "K562",
+            "condition_key": "condition",
+        },
     }
-    
-    for iteration, adata in zip(['Recurrence Med vs Raji', 'Recurrence Med vs K562','Pre vs Post',], [mtx_raji, mtx_k562,mtx_prepost]):
-        logger.info('{} Iteration has begun'.format(iteration))                        
-        condition_key = meld_dict[iteration]['condition_key']
-        condition1 = meld_dict[iteration]['condition1']
-        condition2 = meld_dict[iteration]['condition2']
+
+    for iteration, adata in zip(
+        ["Recurrence Med vs Raji", "Recurrence Med vs K562", "Pre vs Post",],
+        [mtx_raji, mtx_k562, mtx_prepost],
+    ):
+        logger.info("{} Iteration has begun".format(iteration))
+        condition_key = meld_dict[iteration]["condition_key"]
+        condition1 = meld_dict[iteration]["condition1"]
+        condition2 = meld_dict[iteration]["condition2"]
         logger.info("Phenograph")
-        
+
         k = 30
         sc.tl.pca(adata, n_comps=10)
         communities, graph, Q = sce.tl.phenograph(adata.obsm["X_pca"], k=k)
@@ -438,10 +470,10 @@ if __name__ == "__main__":
         sc.pp.neighbors(adata, n_neighbors=30, n_pcs=10)
         sc.tl.umap(adata)
         sc.pl.umap(
-           adata,
-           color=["PhenoGraph_clusters", "sample_type"],
-           title="PhenoGraph Assigned Clusters: {}".format(iteration),
-           save="phenograph {} 01102022.png".format(iteration),
+            adata,
+            color=["PhenoGraph_clusters", "sample_type"],
+            title="PhenoGraph Assigned Clusters: {}".format(iteration),
+            save="phenograph {} 01102022.png".format(iteration),
         )
 
         # MELD
@@ -453,4 +485,6 @@ if __name__ == "__main__":
             condition_key=condition_key,
             cluster_key="PhenoGraph_clusters",
         )
-        metadata.to_csv("cytof_anndata/cytof_annotated_metadata {}.csv".format(condition_key))
+        metadata.to_csv(
+            "cytof_anndata/cytof_annotated_metadata {}.csv".format(condition_key)
+        )

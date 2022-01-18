@@ -65,7 +65,11 @@ def _prepare_cytof(fcs_list, fcs_conditions, clinical_data, channels=None):
 
 
 def _concatenate_cytof(
-    adata_list, conditions_of_interest, condition_column, timepoints_of_interest, timepoint_column
+    adata_list,
+    conditions_of_interest,
+    condition_column,
+    timepoints_of_interest,
+    timepoint_column,
 ):
     """
     adata_list: list of adata structures
@@ -109,11 +113,13 @@ def _batch_correct_cytof(adata, batch_key, covariates):
 
     """
     logger.info("Batch correcting cytof data")
-    # TODO: hardcoding none to the covariates here. 
+    # TODO: hardcoding none to the covariates here.
     return sc.pp.combat(adata, key=batch_key, covariates=None, inplace=False)
 
 
-def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch_key, channels=None):
+def preprocess_cytof(
+    fcs_list, fcs_conditions, clinical_data, filter_dict, batch_key, channels=None
+):
     """
     fcs_list: a LIST of FCS structures 
     clinical_data: PD DATAFRAME  
@@ -134,12 +140,16 @@ def preprocess_cytof(fcs_list, fcs_conditions, clinical_data, filter_dict, batch
         fcs_list, fcs_conditions, clinical_data, channels=channels,
     )
     concatenated = _concatenate_cytof(
-        adata_list, conditions_of_interest, condition_column, timepoints_of_interest, timepoint_column
+        adata_list,
+        conditions_of_interest,
+        condition_column,
+        timepoints_of_interest,
+        timepoint_column,
     )
     concatenated.X = _normalize_cytof(concatenated)
     # TODO: currently trying to add covariates makes the script fail due to singular matrix
     # TODO: investigate why scanpy.pp.combat fails for our two covariates (time and condition)
-    # TODO: we can't regress out batch differences sample by sample. thats dumb.  
+    # TODO: we can't regress out batch differences sample by sample. thats dumb.
     #     concatenated.X = _batch_correct_cytof(
     #         concatenated, batch_key, covariates=[]
     #     )
