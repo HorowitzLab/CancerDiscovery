@@ -143,16 +143,20 @@ def object_concatenation(adata_list):
     return concatenated
 
 
-def run_tangram(spatial, singleCell):
+def run_tangram(spatial, singleCell, ngenes):
+    '''
+    spatial: the adata object you want to label
+    singleCell: the single cell object with your cells of interest
+    ngenes: the number of genes you want to take as your markers of interest
+    '''
     sc.tl.rank_genes_groups(singleCell, groupby="cell.type", use_raw=False)
 
     markers_df = pd.DataFrame(singleCell.uns["rank_genes_groups"]["names"]).iloc[
-        0:1000, :
+        0:ngenes, :
     ]
     genes_sc = np.unique(markers_df.melt().value.values)
     genes_st = spatial.var_names.values
-    genes = list(set(genes_sc).intersection(set(genes_st)))
-
+    genes = list(set(genes_sc).intersection(set(genes_st)))    
     tg.pp_adatas(singleCell, spatial, genes=genes)
 
     ad_map = tg.map_cells_to_space(
@@ -212,22 +216,7 @@ if __name__ == "__main__":
 
     # Combine the extracted files from the experimental dirs
     spatial_obs = visium_new + visium_old
-    spatial_obs_filtered = initial_processing(spatial_obs_labelled)
-
-    ##########################################################
-    # Attempting to fix the predictions!
-    ##########################################################
-
-    # Tangram / labelling analysis
-    logger.info("Starting tangram and deconvolution")
-    labelled_sc = ad.read_h5ad(data_dir + "scSeq_labelled/Spatial/alice_converted.h5ad")
-    spatial_obs_filtered_labelled = []
-    print(labelled_sc.obs)
-    for adata in spatial_obs_filtered:
-        adata_filtered_labelled = run_tangram(adata, labelled_sc)
-        spatial_obs_filtered_labelled.append(adata_filtered_labelled)
-
-    logger.info("Tangram Done.")
+    spatial_obs_filtered = initial_processing(spatial_obs)
 
     ##########################################################
     ##########################################################
@@ -238,7 +227,7 @@ if __name__ == "__main__":
     clinical_info["timepoint"] = clinical_info["Characterization"]
 
     # Concatenate all objects into a single AnnData Object
-    concatenated = object_concatenation(spatial_obs_filtered_labelled)
+    concatenated = object_concatenation(spatial_obs_filtered)
     sc.pp.filter_genes(concatenated, min_counts=concatenated.shape[0] * 0.01)
 
     # Fixing keys.
@@ -261,5 +250,14 @@ if __name__ == "__main__":
     )
     temp.index = concatenated.obs.index
     concatenated.obs.timepoint = temp.timepoint
-
-    concatenated.write_h5ad("labelled_spatial_tangram.h5ad")
+    
+    logger.info("Starting tangram and deconvolution")
+    labelled_sc = ad.read_h5ad(data_dir + "scSeq_labelled/Spatial/alice_converted.h5ad")
+    # ranging the number of genes we use to label dots with
+    for ngenes in [100,700,1000]:
+        final = run_tangram(concatenated, labelled_sc, ngenes=ngenes)
+        logger.info("Tangram Done.")
+        df_plot = final.obsm['tangram_ct_pred']
+        labels = (df_plot - df_plot.min()) / (df_plot.max() - df_plot.min())
+        final.obs = pd.merge(final.obs, labels, left_index=True, right_index=True)
+        final.write_h5ad("labelled_spatial_tangram_{}genes.h5ad".format(ngenes))

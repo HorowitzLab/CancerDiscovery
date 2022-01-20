@@ -42,6 +42,7 @@ import meld
 import cmocean
 import sklearn
 from FlowCytometryTools import FCMeasurement
+from joblib import Parallel, delayed
 
 # Plotting Imports
 import seaborn as sns
@@ -75,7 +76,6 @@ np.random.seed(42)
 
 # Figure Directory
 FIGDIR = "figures/"
-
 
 def _replicate_normalize_densities(sample_densities, replicate):
     replicates = np.unique(replicate)
@@ -120,10 +120,6 @@ def _plot_jitter_by_cluster(metadata, sample_cmap, cluster_key, condition_key):
     fig.tight_layout()
     return fig
 
-
-from joblib import Parallel, delayed
-
-
 def _simulate_pdf_calculate_likelihood(benchmarker, seed, beta):
     """
     TODO ADD DOCSTRING
@@ -135,7 +131,6 @@ def _simulate_pdf_calculate_likelihood(benchmarker, seed, beta):
     benchmarker.calculate_MELD_likelihood(beta=beta)
     MELD_mse = benchmarker.calculate_mse(benchmarker.expt_likelihood)
     return MELD_mse, seed, beta, benchmarker.graph.knn
-
 
 def _parameter_search(adata, benchmarker):
     """
@@ -330,15 +325,15 @@ if __name__ == "__main__":
         "114Cd_CD11b",
         "115In_IFNg",
         "116Cd_CD57",
-        "141Pr_cKit",
+        # "141Pr_cKit",
         "142Nd_KLRG1",
         "143Nd_Granzyme_K",
         "144Nd_CD69",
         "145Nd_NKG2D_",
         "146Nd_DNAM1",
         "147Sm_NKp80",
-        "148Nd_KIR3DL1_L2",
-        "149Sm_KIR3DL1",
+        #"148Nd_KIR3DL1_L2",
+        #"149Sm_KIR3DL1",
         "150Nd_IL2",
         "151Eu_CD107a",
         "152Sm_TNFa",
@@ -346,18 +341,18 @@ if __name__ == "__main__":
         "154Sm_MIP1b",
         "155Gd_NKp46",
         "156Gd_Tim3",
-        "158Gd_KIR2DL1",
+        #"158Gd_KIR2DL1",
         "159Tb_CD56",
         "160Gd_NKG2A",
         "161Dy_NKp44",
         "162Dy_CD27",
         "163Dy_Eomes",
         "164Dy_NKG2C",
-        "165Ho_KIR2DL3",
-        "166Er_KIR2DL1_S1",
-        "167Er_KIR2DL2_L3",
+        #"165Ho_KIR2DL3",
+        #"166Er_KIR2DL1_S1",
+        #"167Er_KIR2DL2_L3",
         "168Er_TRAIL",
-        "169Tm_Tbet",
+        #"169Tm_Tbet",
         "170Er_CD3",
         "171Yb_CD127",
         "172Yb_Perforin",
@@ -381,6 +376,8 @@ if __name__ == "__main__":
     # logger.info("Subsampling!!! Take me out!")
     # subsample_index = np.random.choice(adata.shape[0], size=5000, replace=False)
     # adata = adata[subsample_index].copy()
+    #fcs_list = fcs_list[0:30]
+    #fcs_conditions = fcs_conditions[0:30]
 
     # PRE VS POST
     filter_dict = {
@@ -486,5 +483,5 @@ if __name__ == "__main__":
             cluster_key="PhenoGraph_clusters",
         )
         metadata.to_csv(
-            "cytof_anndata/cytof_annotated_metadata {}.csv".format(condition_key)
+            "cytof_anndata/cytof_annotated_metadata {} {}.csv".format(condition_key, condition2)
         )

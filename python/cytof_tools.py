@@ -146,7 +146,9 @@ def preprocess_cytof(
         timepoints_of_interest,
         timepoint_column,
     )
-    concatenated.X = _normalize_cytof(concatenated)
+    # No batch effects; samples were already normalized
+    
+    #concatenated.X = _normalize_cytof(concatenated)
     # TODO: currently trying to add covariates makes the script fail due to singular matrix
     # TODO: investigate why scanpy.pp.combat fails for our two covariates (time and condition)
     # TODO: we can't regress out batch differences sample by sample. thats dumb.
