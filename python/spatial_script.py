@@ -110,13 +110,15 @@ def initial_processing(spatial_obs):
     """
 
     # Filtering each spatial object inplace
-    # normalize; log transform; filter 250 < x < 35000
+    # normalize; log transform; filter 1000 < x < 35000
+    # Previously tried 250, but seems like a higher threshold is needed for
+    # QC purposes
     # keep objects that passed filtering threshold
     spatial_obs_filtered = []
     for adata in spatial_obs:
         sc.pp.normalize_total(adata, inplace=True)
         sc.pp.log1p(adata)
-        sc.pp.filter_cells(adata, min_counts=250, inplace=True)
+        sc.pp.filter_cells(adata, min_counts=1000, inplace=True)
         sc.pp.filter_cells(adata, max_counts=35000, inplace=True)
         if len(adata.obs) > 0:
             spatial_obs_filtered.append(adata)
@@ -131,15 +133,22 @@ def object_concatenation(adata_list):
     # Concatenate all objects into a single AnnData Object
     concatenated = adata_list[0]
     for item in adata_list[1:]:
-        concatenated = concatenated.concatenate(
-            item,
-            uns_merge="unique",
-            batch_categories=[
-                k
-                for d in [concatenated[0].uns["spatial"], item[1].uns["spatial"],]
-                for k, v in d.items()
-            ],
-        )
+        #print(item.shape, item.shape[0])
+        try: 
+            if item.shape[0] > 0:
+                concatenated = concatenated.concatenate(
+                    item,
+                    uns_merge="unique",
+                    batch_categories=[
+                        k
+                        for d in [concatenated[0].uns["spatial"], item[1].uns["spatial"],]
+                        for k, v in d.items()
+                    ],
+                )
+        except (ValueError,IndexError):
+            print('INDEX / VALUE ERROR')
+            print(item)
+            
     return concatenated
 
 
@@ -188,7 +197,7 @@ if __name__ == "__main__":
     data_dir = "/sc/arion/projects/nmibc_bcg/CancerDiscovery/data/spatial/"
 
     wangy_path = (
-        "jan2022exp/wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD005713_AmirHorowitz/"
+        "jan2022exp_realigned/wangy33.u.hpc.mssm.edu/10X_Single_Cell_RNA/TD005713_AmirHorowitz/"
     )
     target = data_dir + wangy_path
     nmibc_path_list = []
