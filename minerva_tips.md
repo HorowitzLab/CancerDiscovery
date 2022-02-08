@@ -41,6 +41,7 @@
 - You can then use these singularity images when starting the jupyter notebook. 
   - `minerva-jupyter-web.sh --image jupyter-base-376.img`
   - `minerva-jupyter-web.sh --image jupyter-tf.img`
+  - `minerva-jupyter-web.sh  --image jupyter-base-376.img -W 24:00 -M 50000` - this is the most useful command. long wall time and high mem
 
 ## Scripts
 - Scripts must be submitted to queues via `bsub`
