@@ -1,6 +1,5 @@
 """
 Spatial analysis tools
-
 """
 
 __author__ = "Daniel Ranti"

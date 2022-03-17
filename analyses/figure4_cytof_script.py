@@ -369,15 +369,15 @@ if __name__ == "__main__":
         {"I1D1": "Pre-BCG", "at recurrence": "Recurrence", "recurrence": "Recurrence"}
     )
 
-    # Debugging - need to remove one non-specific AHBCG17
+    # Debugging - need to remove one non-specific AHBCG17 
     clinical.drop(53, inplace=True)
 
-    # DEBUG
+    # DEBUG: subsampling to make the process go faster
     # logger.info("Subsampling!!! Take me out!")
     # subsample_index = np.random.choice(adata.shape[0], size=5000, replace=False)
     # adata = adata[subsample_index].copy()
-    #fcs_list = fcs_list[0:30]
-    #fcs_conditions = fcs_conditions[0:30]
+    # fcs_list = fcs_list[0:30]
+    # fcs_conditions = fcs_conditions[0:30]
 
     # PRE VS POST
     filter_dict = {
