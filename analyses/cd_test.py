@@ -2,7 +2,7 @@
 
 """
 Test suite for 
-- TODO: NEED TO IMPLELEMENT. The below is copied code from the tangram program. 
+- TODO: NEED TO IMPLEMENT. The below is copied code from the tangram program. 
 - TODO: THINK ABOUT THE FUNCTIONS THAT NEED TO BE TESTED
 """
 
